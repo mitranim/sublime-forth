@@ -1,0 +1,115 @@
+%YAML 1.2
+---
+version: 2
+file_extensions: [f, fs]
+scope: source.forth
+
+variables:
+  comment_line_begin: (?i)(?:\\|\\g) # \g may be specific to gforth.
+  comment_block_begin: \(
+  comment_block_end: \)
+  word_begin: '(?<=^|\s)'
+  word_end: '(?=\s|$)'
+  word: '\S+'
+
+contexts:
+  prototype:
+    - include: match-comment
+
+  main:
+    - include: match-number
+    - include: match-string
+    - include: match-colon
+    - include: match-variable
+    - include: match-constant
+    - include: match-any-word
+
+  # Tentative. Can break some real code.
+  match-comment:
+    - include: match-comment-line
+    - include: match-comment-block
+
+  match-comment-line:
+    - match: '{{word_begin}}({{comment_line_begin}}){{word_end}}.*(\n|$)'
+      scope: comment.line.forth
+      captures:
+        1: punctuation.definition.comment.begin.forth
+
+  match-comment-block:
+    - match: '{{word_begin}}{{comment_block_begin}}{{word_end}}'
+      scope: punctuation.definition.comment.begin.forth
+      push: pop-comment-block
+
+  pop-comment-block:
+    - meta_scope: comment.block.forth
+    - match: '{{word_begin}}{{comment_block_end}}{{word_end}}'
+      scope: punctuation.definition.comment.end.forth
+      pop: true
+    - include: match-comment-block
+
+  # TODO: figure out how to support hex. The problem is instead of having a
+  # special syntax for hex numbers, the interpreter gets switched into a mode
+  # where words like "ff" are parsed as numbers. If we could define a
+  # persistent context, we would be able to detect `hex` and `decimal` calls
+  # and use them to switch parsing modes. However, the current ST engine is
+  # context free.
+  match-number:
+    - match: '{{word_begin}}\d+{{word_end}}'
+      scope: constant.numeric.decimal.forth
+
+  match-string:
+    - include: match-string-quoted-double
+    - include: match-string-parens
+
+  match-string-quoted-double:
+    - match: '{{word_begin}}(\.") ([^"]*)(")'
+      captures:
+        1: variable.function.string.begin.forth
+        2: string.quoted.double.forth
+        3: punctuation.definition.string.end.forth
+
+  match-string-parens:
+    - match: '{{word_begin}}(\.\() ([^)]*)(\))'
+      captures:
+        1: variable.function.string.begin.forth
+        2: string.quoted.other.forth
+        3: punctuation.definition.string.end.forth
+
+  match-colon:
+    - match: '{{word_begin}}:{{word_end}}'
+      scope: keyword.declaration.function.forth
+      push: pop-colon-name
+
+  pop-colon-name:
+    - meta_include_prototype: false
+    - meta_scope: meta.declaration.forth
+    - match: '{{word_begin}};{{word_end}}'
+      scope: punctuation.terminator.forth
+      pop: true
+    - match: '{{word_begin}}{{word}}{{word_end}}'
+      scope: entity.name.function.forth
+      set: pop-on-semi
+
+  match-variable:
+    - match: '{{word_begin}}((?i)variable){{word_end}}\s+({{word}}){{word_end}}'
+      scope: meta.declaration.forth
+      captures:
+        1: keyword.declaration.variable.forth
+        2: variable.other.variable.forth
+
+  match-constant:
+    - match: '{{word_begin}}((?i)constant){{word_end}}\s+({{word}}){{word_end}}'
+      scope: meta.declaration.forth
+      captures:
+        1: keyword.declaration.constant.forth
+        2: variable.other.constant.forth
+
+  pop-on-semi:
+    - match: '{{word_begin}};{{word_end}}'
+      scope: punctuation.terminator.forth
+      pop: true
+    - include: main
+
+  match-any-word:
+    - match: '{{word_begin}}{{word}}{{word_end}}'
+      scope: variable.function.forth
