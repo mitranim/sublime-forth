@@ -20,8 +20,9 @@ contexts:
     - include: match-number
     - include: match-string
     - include: match-colon
-    - include: match-variable
     - include: match-constant
+    - include: match-variable
+    - include: match-create
     - include: match-any-word
 
   # Tentative. Can break some real code.
@@ -90,6 +91,13 @@ contexts:
       scope: entity.name.function.forth
       set: pop-on-semi
 
+  match-constant:
+    - match: '{{word_begin}}((?i)constant){{word_end}}\s+({{word}}){{word_end}}'
+      scope: meta.declaration.forth
+      captures:
+        1: keyword.declaration.constant.forth
+        2: variable.other.constant.forth
+
   match-variable:
     - match: '{{word_begin}}((?i)variable){{word_end}}\s+({{word}}){{word_end}}'
       scope: meta.declaration.forth
@@ -97,12 +105,12 @@ contexts:
         1: keyword.declaration.variable.forth
         2: variable.other.variable.forth
 
-  match-constant:
-    - match: '{{word_begin}}((?i)constant){{word_end}}\s+({{word}}){{word_end}}'
+  match-create:
+    - match: '{{word_begin}}((?i)create){{word_end}}\s+({{word}}){{word_end}}'
       scope: meta.declaration.forth
       captures:
-        1: keyword.declaration.constant.forth
-        2: variable.other.constant.forth
+        1: keyword.declaration.create.forth
+        2: variable.other.variable.forth
 
   pop-on-semi:
     - match: '{{word_begin}};{{word_end}}'
