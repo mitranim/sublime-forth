@@ -77,7 +77,7 @@ contexts:
   match-colon:
     - match: '{{word_begin}}:{{word_end}}'
       scope: keyword.declaration.function.forth
-      push: pop-colon-name
+      push: [meta-colon, pop-colon-name]
 
   pop-colon-name:
     - meta_include_prototype: false
@@ -88,6 +88,11 @@ contexts:
     - match: '{{word_begin}}{{word}}{{word_end}}'
       scope: entity.name.function.forth
       set: pop-on-semi
+
+  meta-colon:
+    - meta_scope: meta.colon.forth
+    - match: ''
+      pop: true
 
   # Tentative. Can misfire in some code.
   match-declaration:
