@@ -2,7 +2,7 @@
 
 Sublime Text syntax definition for Forth. Tested with GForth.
 
-Supports the general principles of the syntax, comments, declarations of functions, variables, and constants. Does not support unnecessary built-ins, which may vary between environments.
+Supports the general principles of the syntax, comments, declarations. Tries to avoid unnecessary built-ins, which may vary between environments. Probably very incomplete.
 
 ## Installation
 

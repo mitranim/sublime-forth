@@ -20,9 +20,7 @@ contexts:
     - include: match-number
     - include: match-string
     - include: match-colon
-    - include: match-constant
-    - include: match-variable
-    - include: match-create
+    - include: match-declaration
     - include: match-any-word
 
   # Tentative. Can break some real code.
@@ -63,7 +61,7 @@ contexts:
     - include: match-string-parens
 
   match-string-quoted-double:
-    - match: '{{word_begin}}(\.") ([^"]*)(")'
+    - match: '{{word_begin}}((?:\.|s)") ([^"]*)(")'
       captures:
         1: variable.function.string.begin.forth
         2: string.quoted.double.forth
@@ -91,26 +89,13 @@ contexts:
       scope: entity.name.function.forth
       set: pop-on-semi
 
-  match-constant:
-    - match: '{{word_begin}}((?i)constant){{word_end}}\s+({{word}}){{word_end}}'
+  # Tentative. Can misfire in some code.
+  match-declaration:
+    - match: '{{word_begin}}((?i)constant|variable|value|create){{word_end}}\s+({{word}}){{word_end}}'
       scope: meta.declaration.forth
       captures:
-        1: keyword.declaration.constant.forth
-        2: variable.other.constant.forth
-
-  match-variable:
-    - match: '{{word_begin}}((?i)variable){{word_end}}\s+({{word}}){{word_end}}'
-      scope: meta.declaration.forth
-      captures:
-        1: keyword.declaration.variable.forth
-        2: variable.other.variable.forth
-
-  match-create:
-    - match: '{{word_begin}}((?i)create){{word_end}}\s+({{word}}){{word_end}}'
-      scope: meta.declaration.forth
-      captures:
-        1: keyword.declaration.create.forth
-        2: variable.other.variable.forth
+        1: keyword.declaration.forth
+        2: variable.other.forth
 
   pop-on-semi:
     - match: '{{word_begin}};{{word_end}}'
