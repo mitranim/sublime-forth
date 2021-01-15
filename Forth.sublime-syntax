@@ -61,7 +61,7 @@ contexts:
     - include: match-string-parens
 
   match-string-quoted-double:
-    - match: '{{word_begin}}((?:\.|s)") ([^"]*)(")'
+    - match: '{{word_begin}}((?i)(?:\.|s)") ([^"]*)(")'
       captures:
         1: variable.function.string.begin.forth
         2: string.quoted.double.forth
