@@ -6,6 +6,15 @@ Supports the general principles of the syntax, comments, declarations. Tries to 
 
 ## Installation
 
+### Package Control
+
+1. Get [Package Control](https://packagecontrol.io).
+2. Open the command palette: ⇪⌘P or ⇪^P.
+3. `Package Control: Install Package`.
+4. `Forth`.
+
+### Manual
+
 Clone the repo and symlink it to your Sublime packages directory. Example for MacOS:
 
 ```sh

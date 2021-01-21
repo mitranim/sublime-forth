@@ -1,16 +1,15 @@
 %YAML 1.2
 ---
 version: 2
-file_extensions: [f, fs]
+file_extensions: [f, fs, fth]
 scope: source.forth
 
 variables:
   comment_line_begin: (?i)(?:\\|\\g) # \g may be specific to gforth.
-  comment_block_begin: \(
-  comment_block_end: \)
   word_begin: '(?<=^|\s)'
   word_end: '(?=\s|$)'
   word: '\S+'
+  word_declaration: (?i)constant|variable|value|create|vocabulary|defer
 
 contexts:
   prototype:
@@ -21,12 +20,13 @@ contexts:
     - include: match-string
     - include: match-colon
     - include: match-declaration
+    - include: match-import
+    - include: match-char
     - include: match-any-word
 
-  # Tentative. Can break some real code.
   match-comment:
     - include: match-comment-line
-    - include: match-comment-block
+    - include: match-comment-block-paren
 
   match-comment-line:
     - match: '{{word_begin}}({{comment_line_begin}}){{word_end}}.*(\n|$)'
@@ -34,24 +34,21 @@ contexts:
       captures:
         1: punctuation.definition.comment.begin.forth
 
-  match-comment-block:
-    - match: '{{word_begin}}{{comment_block_begin}}{{word_end}}'
+  match-comment-block-paren:
+    - match: '{{word_begin}}\({{word_end}}'
       scope: punctuation.definition.comment.begin.forth
-      push: pop-comment-block
+      push: pop-comment-block-paren
 
-  pop-comment-block:
+  pop-comment-block-paren:
     - meta_scope: comment.block.forth
-    - match: '{{word_begin}}{{comment_block_end}}{{word_end}}'
+    - match: '{{word_begin}}\){{word_end}}'
       scope: punctuation.definition.comment.end.forth
       pop: true
-    - include: match-comment-block
 
-  # TODO: figure out how to support hex. The problem is instead of having a
-  # special syntax for hex numbers, the interpreter gets switched into a mode
-  # where words like "ff" are parsed as numbers. If we could define a
-  # persistent context, we would be able to detect `hex` and `decimal` calls
-  # and use them to switch parsing modes. However, the current ST engine is
-  # context free.
+  # Sadly we're limited to supporting only decimals. Correctly detecting
+  # hexadecimals and differentiating them from defined words requires access to
+  # Forth's dictionary of defined words. Even decimals may be defined as words,
+  # but we just assume that most users aren't that crazy.
   match-number:
     - match: '{{word_begin}}\d+{{word_end}}'
       scope: constant.numeric.decimal.forth
@@ -60,17 +57,22 @@ contexts:
     - include: match-string-quoted-double
     - include: match-string-parens
 
+  # Scopes constructs like this:
+  #
+  #   <begin>" <string content>"<end>
+  #
+  # Tentative. Misfires in source code of GForth.
   match-string-quoted-double:
-    - match: '{{word_begin}}((?i)(?:\.|s)") ([^"]*)(")'
+    - match: '{{word_begin}}([^\s"]*")\s([^"]*)("[^\s"]*){{word_end}}'
       captures:
-        1: variable.function.string.begin.forth
+        1: punctuation.definition.string.begin.forth
         2: string.quoted.double.forth
         3: punctuation.definition.string.end.forth
 
   match-string-parens:
-    - match: '{{word_begin}}(\.\() ([^)]*)(\))'
+    - match: '{{word_begin}}(\.\()\s([^)]*)(\)){{word_end}}'
       captures:
-        1: variable.function.string.begin.forth
+        1: punctuation.definition.string.begin.forth
         2: string.quoted.other.forth
         3: punctuation.definition.string.end.forth
 
@@ -96,11 +98,24 @@ contexts:
 
   # Tentative. Can misfire in some code.
   match-declaration:
-    - match: '{{word_begin}}((?i)constant|variable|value|create){{word_end}}\s+({{word}}){{word_end}}'
+    - match: '{{word_begin}}({{word_declaration}}){{word_end}}\s+({{word}}){{word_end}}'
       scope: meta.declaration.forth
       captures:
         1: keyword.declaration.forth
         2: variable.other.forth
+
+  match-import:
+    - match: '{{word_begin}}(require|include){{word_end}}\s+({{word}}){{word_end}}'
+      scope: meta.import.forth
+      captures:
+        1: keyword.import.forth
+        2: string.other.forth
+
+  match-char:
+    - match: '{{word_begin}}(char|\[char\]|chars){{word_end}}\s+({{word}}){{word_end}}'
+      captures:
+        1: variable.function.forth
+        2: string.other.forth
 
   pop-on-semi:
     - match: '{{word_begin}};{{word_end}}'
