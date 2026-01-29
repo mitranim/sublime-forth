@@ -21,7 +21,7 @@ variables:
   int_hex: '[0-9a-f]+'
   exponent: 'e[+-]?'
   param: '[^\s"{{tick}}]+'
-  declaring_word_top: (?:(?i)(?:constant|variable|2variable|value|vocabulary|defer|answord))
+  declaring_word_top: (?:(?i)(?:constant|variable|2variable|value|vocabulary|defer|answord|create))
   declaring_word_inner: (?:(?i)to)
   parsing_word_top: (?:(?i)(?:require|include))
   parsing_word_inner: (?:(?i)(?:char|postpone|compile))
