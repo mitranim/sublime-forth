@@ -1,128 +1,397 @@
 %YAML 1.2
 ---
 version: 2
-file_extensions: [f, fs, fth]
 scope: source.forth
+file_extensions: [f, fs, ft, fth] # Nobody agrees on extensions.
 
 variables:
-  comment_line_begin: (?i)(?:\\|\\g) # \g may be specific to gforth.
+  comment_line_begin: (?i)(?:\\+g?) # \g is Gforth-specific.
+  comment_block_begin: \(
+  comment_block_end: \)
   word_begin: '(?<=^|\s)'
   word_end: '(?=\s|$)'
-  word: '\S+'
-  word_declaration: (?i)constant|variable|value|create|vocabulary|defer
+  word: '(?:\S+)'
+  parens_param: '(?:[^\s()]+)'
+  braces_param: '(?:[^\s{}]+)'
+  delim: \(\)\[\]\{\}
+  num_begin: '{{word_begin}}'
+  num_end: '{{word_end}}'
+  int_bin: '[01]+'
+  int_dec: '\d+'
+  int_hex: '[0-9a-f]+'
+  exponent: 'e[+-]?'
+  param: '[^\s"{{tick}}]+'
+  declaring_word_top: (?:(?i)(?:constant|variable|2variable|value|vocabulary|defer|answord))
+  declaring_word_inner: (?:(?i)to)
+  parsing_word_top: (?:(?i)(?:require|include))
+  parsing_word_inner: (?:(?i)(?:char|postpone|compile))
+  keyword: (?:(?i)(?:if|else|then|[?+-]?do|u-do|while|begin|repeat|until|leave|for|[+-]?loop|next|exit))
+  tick: \'
+  eol: (?:\n|$)
 
 contexts:
   prototype:
-    - include: match-comment
+    - include: comment-match
 
   main:
-    - include: match-number
-    - include: match-string
-    - include: match-colon
-    - include: match-declaration
-    - include: match-import
-    - include: match-char
-    - include: match-any-word
+    - include: colon-match
+    - include: declaring-word-top-match
+    - include: parsing-word-top-match
+    - include: inner
 
-  match-comment:
-    - include: match-comment-line
-    - include: match-comment-block-paren
+  inner:
+    - include: number-match
+    - include: string-match
+    - include: semi-match
+    - include: braces-params-match
+    - include: declaring-word-inner-match
+    - include: parsing-word-generic-match
+    - include: parsing-word-inner-match
+    - include: delimited-word-match
+    - include: keyword-match
+    - include: any-word-match
 
-  match-comment-line:
-    - match: '{{word_begin}}({{comment_line_begin}}){{word_end}}.*(\n|$)'
-      scope: comment.line.forth
-      captures:
-        1: punctuation.definition.comment.begin.forth
+  comment-match:
+    - include: comment-line-match
+    - include: comment-block-match
+    - include: comment-block-double-match
+    - include: comment-block-triple-match
+    - include: parens-params-match
 
-  match-comment-block-paren:
-    - match: '{{word_begin}}\({{word_end}}'
+  comment-line-match:
+    - match: '{{word_begin}}{{comment_line_begin}}{{word_end}}'
+      scope: punctuation.definition.comment.forth
+      push: comment-line-pop
+
+  comment-line-pop:
+    - meta_scope: comment.line.forth
+    - meta_include_prototype: false
+    - match: '{{eol}}'
+      pop: 1
+
+  # Also see `parens-params-match`.
+  comment-block-match:
+    - match: '{{word_begin}}{{comment_block_begin}}{{word_end}}(?=\s*{{eol}})'
       scope: punctuation.definition.comment.begin.forth
-      push: pop-comment-block-paren
+      push: comment-block-pop
 
-  pop-comment-block-paren:
+  comment-block-pop:
     - meta_scope: comment.block.forth
-    - match: '{{word_begin}}\){{word_end}}'
+    - meta_include_prototype: false
+    - match: '{{comment_block_end}}'
       scope: punctuation.definition.comment.end.forth
-      pop: true
+      pop: 1
+    - include: comment-heading
 
-  # Sadly we're limited to supporting only decimals. Correctly detecting
-  # hexadecimals and differentiating them from defined words requires access to
-  # Forth's dictionary of defined words. Even decimals may be defined as words,
-  # but we just assume that most users aren't that crazy.
-  match-number:
-    - match: '{{word_begin}}\d+{{word_end}}'
+  # Comments in this style are found in VfxForth code.
+  comment-block-double-match:
+    - match: '{{word_begin}}{{comment_block_begin}}{2}{{word_end}}(?=\s*{{eol}})'
+      scope: punctuation.definition.comment.begin.forth
+      push: comment-block-double-pop
+
+  comment-block-double-pop:
+    - meta_scope: comment.block.forth
+    - meta_include_prototype: false
+    - match: '{{comment_block_end}}{2}'
+      scope: punctuation.definition.comment.end.forth
+      pop: 1
+
+  comment-block-triple-match:
+    - match: '{{word_begin}}{{comment_block_begin}}{3}{{word_end}}(?=\s*{{eol}})'
+      scope: punctuation.definition.comment.begin.forth
+      push: comment-block-triple-pop
+
+  comment-block-triple-pop:
+    - meta_scope: comment.block.forth
+    - meta_include_prototype: false
+    - match: '{{comment_block_end}}{3}'
+      scope: punctuation.definition.comment.end.forth
+      pop: 1
+
+  number-match:
+    - include: number-bin
+    - include: number-dec
+    - include: number-hex
+
+  number-bin:
+    - match: '{{num_begin}}(?i)(-?)(%){{int_bin}}(?:(\.){{int_bin}})?(?:({{exponent}}){{int_bin}})?{{num_end}}'
+      scope: constant.numeric.binary.forth
+      captures:
+        1: keyword.operator.arithmetic.forth
+        2: punctuation.definition.numeric.binary.forth
+        3: punctuation.separator.numeric.binary.forth
+        4: punctuation.separator.exponent.forth
+
+  number-dec:
+    - match: '{{num_begin}}(?i)(-?)([&#]?){{int_dec}}(?:(\.){{int_dec}})?(?:({{exponent}}){{int_dec}})?{{num_end}}'
       scope: constant.numeric.decimal.forth
+      captures:
+        1: keyword.operator.arithmetic.forth
+        2: punctuation.definition.numeric.decimal.forth
+        3: punctuation.separator.numeric.forth
+        4: punctuation.separator.exponent.forth
 
-  match-string:
-    - include: match-string-quoted-double
-    - include: match-string-parens
+  number-hex:
+    - match: '{{num_begin}}(?i)(-?)(0x|\$){{int_hex}}(?:(\.){{int_hex}})?{{num_end}}'
+      scope: constant.numeric.hexadecimal.forth
+      captures:
+        1: keyword.operator.arithmetic.forth
+        2: punctuation.definition.numeric.hexadecimal.forth
+        3: punctuation.separator.numeric.hexadecimal.forth
 
-  # Scopes constructs like this:
+  string-match:
+    - include: string-single-match
+    - include: string-double-match
+    - include: string-parens-match
+
+  # Scopes any of: `'' 'X 'X'`.
+  string-single-match:
+    - match: '{{word_begin}}({{tick}})[^\s{{tick}}]*({{tick}}){{word_end}}'
+      scope: string.quoted.single.forth
+      captures:
+        1: punctuation.definition.string.begin.forth
+        2: punctuation.definition.string.end.forth
+    - match: '{{word_begin}}({{tick}})\S+{{word_end}}'
+      scope: string.quoted.single.forth
+      captures:
+        1: punctuation.definition.string.begin.forth
+
+  # Scopes any construct like this:
   #
   #   <begin>" <string content>"<end>
-  #
-  # Tentative. Misfires in source code of GForth.
-  match-string-quoted-double:
-    - match: '{{word_begin}}([^\s"]*")\s([^"]*)("[^\s"]*){{word_end}}'
+  string-double-match:
+    - match: '{{word_begin}}([^\s"]*)("+)\s([^"]*)(\2)([^\s"]*){{word_end}}'
       captures:
-        1: punctuation.definition.string.begin.forth
-        2: string.quoted.double.forth
-        3: punctuation.definition.string.end.forth
+        1: variable.other.forth
+        2: punctuation.definition.string.begin.forth
+        3: string.quoted.double.forth
+        4: punctuation.definition.string.end.forth
+        5: variable.other.forth
 
-  match-string-parens:
-    - match: '{{word_begin}}(\.\()\s([^)]*)(\)){{word_end}}'
+  string-parens-match:
+    - match: '{{word_begin}}(\.)(\()\s([^)]*)(\))(\S*){{word_end}}'
       captures:
-        1: punctuation.definition.string.begin.forth
-        2: string.quoted.other.forth
-        3: punctuation.definition.string.end.forth
+        1: variable.other.forth
+        2: punctuation.definition.string.begin.forth
+        3: string.quoted.other.forth
+        4: punctuation.definition.string.end.forth
+        5: variable.other.forth
 
-  match-colon:
-    - match: '{{word_begin}}:{{word_end}}'
-      scope: keyword.declaration.function.forth
-      push: [meta-colon, pop-colon-name]
-
-  pop-colon-name:
-    - meta_include_prototype: false
-    - meta_scope: meta.declaration.forth
+  semi-match:
     - match: '{{word_begin}};{{word_end}}'
       scope: punctuation.terminator.forth
-      pop: true
+
+  colon-match:
+    - match: '{{word_begin}}[?]?:+{{word_end}}'
+      scope: keyword.declaration.function.forth
+      push: [colon-meta-pop, colon-body-pop, colon-params-pop, colon-name-pop]
+
+  colon-name-pop:
+    - meta_include_prototype: false
+    - meta_scope: meta.declaration.forth
     - match: '{{word_begin}}{{word}}{{word_end}}'
       scope: entity.name.function.forth
-      set: pop-on-semi
+      pop: 1
+    # When typing new definitions, this prevents an opening colon
+    # from "declaring" an unrelated word on a subsequent line.
+    - match: '{{eol}}'
+      pop: 3
 
-  meta-colon:
+  colon-params-pop:
+    - meta_include_prototype: false
+    - include: comment-line-match
+    - include: params-match
+    - include: nonblank-pop
+
+  colon-body-pop:
+    - match: '{{word_begin}};{{word_end}}'
+      scope: punctuation.terminator.forth
+      pop: 1
+    - include: inner
+
+  # The meta scope makes it so that `expand_selection {"to": "scope"}`
+  # can select the entire colon definition.
+  colon-meta-pop:
     - meta_scope: meta.colon.forth
     - match: ''
-      pop: true
+      pop: 1
 
-  # Tentative. Can misfire in some code.
-  match-declaration:
-    - match: '{{word_begin}}({{word_declaration}}){{word_end}}\s+({{word}}){{word_end}}'
+  params-match:
+    - include: parens-params-match
+    - include: braces-params-match
+
+  parens-params-match:
+    - match: '{{word_begin}}\({{word_end}}'
+      scope: punctuation.section.parens.begin.forth
+      push: parens-params-inner-pop
+
+  parens-params-inner-pop:
+    - meta_scope: markup.raw.forth
+    - include: parens-end-pop
+    - include: special-param-match
+    - include: parens-param-match
+    - include: nonblank-pop
+
+  parens-param-match:
+    - match: '{{word_begin}}{{parens_param}}{{word_end}}'
+      scope: variable.other.forth
+
+  parens-end-pop:
+    - match: \)
+      scope: punctuation.section.parens.end.forth
+      pop: 1
+
+  braces-params-match:
+    - match: '{{word_begin}}\{{{word_end}}(?=\s+\S)'
+      scope: punctuation.section.braces.begin.forth
+      push: braces-params-inner-pop
+
+  braces-params-inner-pop:
+    - include: braces-end-pop
+    - include: braces-dash-match
+    - include: special-param-match
+    - include: braces-param-match
+    - include: nonblank-pop
+
+  braces-dash-match:
+    - match: '{{word_begin}}--{{word_end}}'
+      scope: punctuation.separator.forth
+      set: braces-params-output-pop
+
+  braces-params-output-pop:
+    - meta_scope: markup.raw.forth
+    # This trick gets rid of the "raw" scope for the closing brace.
+    - match: (?=\s*\})
+      set: braces-end-pop
+    - include: special-param-match
+    - include: braces-other-match
+    - include: nonblank-pop
+
+  # Used only for input parameters.
+  braces-param-match:
+    - match: '{{word_begin}}{{braces_param}}{{word_end}}'
+      scope: variable.parameter.forth
+
+  # Used for output parameters, which are not actually declared in scope.
+  braces-other-match:
+    - match: '{{word_begin}}{{braces_param}}{{word_end}}'
+      scope: variable.other.forth
+
+  braces-end-pop:
+    - match: \}
+      scope: punctuation.section.braces.end.forth
+      pop: 1
+
+  special-param-match:
+    - match: '{{word_begin}}{{word}}(:){{word_end}}'
+      scope: storage.modifier.forth
+      captures:
+        1: punctuation.separator.forth
+    - match: '{{word_begin}}--{{word_end}}'
+      scope: punctuation.separator.forth
+
+  declaring-word-top-match:
+    - match: '{{word_begin}}({{declaring_word_top}}){{word_end}}\s+({{word}}){{word_end}}'
       scope: meta.declaration.forth
       captures:
         1: keyword.declaration.forth
-        2: variable.other.forth
+        2: entity.name.variable.forth
 
-  match-import:
-    - match: '{{word_begin}}(require|include){{word_end}}\s+({{word}}){{word_end}}'
-      scope: meta.import.forth
+  declaring-word-inner-match:
+    - match: '{{word_begin}}({{declaring_word_inner}}){{word_end}}\s+({{word}}){{word_end}}'
+      scope: meta.declaration.forth
       captures:
-        1: keyword.import.forth
-        2: string.other.forth
+        1: keyword.declaration.forth
+        2: variable.declaration.forth
 
-  match-char:
-    - match: '{{word_begin}}(char|\[char\]|chars){{word_end}}\s+({{word}}){{word_end}}'
-      captures:
-        1: variable.function.forth
-        2: string.other.forth
+  # Support the convention where immediate words with a trailing apostrophe
+  # parse the next word in the source text. We scope the next word as a string
+  # to clarify its role.
+  parsing-word-generic-match:
+    - include: parsing-word-bracketed-ticked-match
+    - include: parsing-word-ticked-match
+    - include: parsing-word-bracketed-known-match
 
-  pop-on-semi:
-    - match: '{{word_begin}};{{word_end}}'
-      scope: punctuation.terminator.forth
-      pop: true
-    - include: main
-
-  match-any-word:
-    - match: '{{word_begin}}{{word}}{{word_end}}'
+  parsing-word-bracketed-ticked-match:
+    - match: '{{word_begin}}(\[+)[^\s"]*?({{tick}}+)(\]+){{word_end}}'
       scope: variable.function.forth
+      captures:
+        1: storage.modifier.forth
+        2: storage.modifier.forth
+        3: storage.modifier.forth
+      push: parse-word-pop
+
+  parsing-word-ticked-match:
+    - match: '{{word_begin}}[^\s{{tick}}"]*?({{tick}}+){{word_end}}'
+      scope: variable.function.forth
+      captures:
+        1: storage.modifier.forth
+      push: parse-word-pop
+
+  parsing-word-bracketed-known-match:
+    - match: '{{word_begin}}(\[+){{parsing_word_inner}}(\]+){{word_end}}'
+      scope: variable.function.forth
+      captures:
+        1: storage.modifier.forth
+        2: storage.modifier.forth
+      push: parse-word-pop
+
+  parsing-word-top-match:
+    - match: '{{word_begin}}{{parsing_word_top}}{{word_end}}'
+      scope: variable.function.forth
+      push: parse-word-pop
+
+  parsing-word-inner-match:
+    - match: '{{word_begin}}{{parsing_word_inner}}{{word_end}}'
+      scope: variable.function.forth
+      push: parse-word-pop
+
+  parse-word-pop:
+    - meta_include_prototype: false
+    - match: '{{eol}}'
+      pop: 1
+    - match: '{{word_begin}}{{word}}{{word_end}}'
+      scope: string.other.forth
+      pop: 1
+
+  delimited-word-match:
+    - include: bracketed-word-match
+    - match: '{{word_begin}}([{{delim}}]+)([^\s{{delim}}]*){{word_end}}'
+      captures:
+        1: punctuation.section.forth
+        2: variable.other.forth
+    - match: '{{word_begin}}([{{delim}}]*)([^\s{{delim}}]*?)([{{delim}}]+){{word_end}}'
+      captures:
+        1: punctuation.section.forth
+        2: variable.other.forth
+        3: punctuation.section.forth
+
+  # Support the common convention of `[bracketed]` words.
+  bracketed-word-match:
+    - match: '{{word_begin}}(\[+)\S*(\]+){{word_end}}'
+      scope: variable.function.forth
+      captures:
+        1: storage.modifier.forth
+        2: storage.modifier.forth
+
+  keyword-match:
+    - match: '{{word_begin}}(?i)(?:nil|true|false){{word_end}}'
+      scope: constant.language.boolean.forth
+    - match: '{{word_begin}}{{keyword}}{{word_end}}'
+      scope: variable.function.forth
+
+  any-word-match:
+    - match: '{{word_begin}}{{word}}{{word_end}}'
+      scope: variable.other.forth
+
+  now-pop:
+    - match: ''
+      pop: 1
+
+  nonblank-pop:
+    - match: (?=\S)
+      pop: 1
+
+  eol-pop:
+    - match: '{{eol}}'
+      pop: 1
