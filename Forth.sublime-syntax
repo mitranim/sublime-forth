@@ -21,11 +21,11 @@ variables:
   int_hex: '[0-9a-f]+'
   exponent: 'e[+-]?'
   param: '[^\s"{{tick}}]+'
-  declaring_word_top: (?:(?i)(?:constant|variable|2variable|value|vocabulary|defer|answord|create))
+  declaring_word_top: (?:(?i)(?:constant|variable|2variable|value|vocabulary|defer|answord|create|xword|end-struct|field|user))
   declaring_word_inner: (?:(?i)to)
   parsing_word_top: (?:(?i)(?:require|include))
   parsing_word_inner: (?:(?i)(?:char|postpone|compile))
-  keyword: (?:(?i)(?:if|else|then|[?+-]?do|u-do|while|begin|repeat|until|leave|for|[+-]?loop|next|exit))
+  keyword: (?:(?i)(?:if|else|then|endif|[?+-]?do|u-do|while|begin|repeat|until|leave|for|[+-]?loop|next|exit))
   tick: \'
   eol: (?:\n|$)
 
@@ -295,7 +295,7 @@ contexts:
       scope: meta.declaration.forth
       captures:
         1: keyword.declaration.forth
-        2: entity.name.variable.forth
+        2: entity.name.forth
 
   declaring-word-inner-match:
     - match: '{{word_begin}}({{declaring_word_inner}}){{word_end}}\s+({{word}}){{word_end}}'
