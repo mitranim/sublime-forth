@@ -5,14 +5,10 @@ scope: source.forth
 file_extensions: [f, fs, ft, fth] # Nobody agrees on extensions.
 
 variables:
-  comment_line_begin: (?i)(?:\\+g?) # \g is Gforth-specific.
+  eol: (?:\n|$)
+  comment_line_begin: (?i:\\+g?) # \g is Gforth-specific.
   comment_block_begin: \(
   comment_block_end: \)
-  word_begin: '(?<=^|\s)'
-  word_end: '(?=\s|$)'
-  word: '(?:\S+)'
-  parens_param: '(?:[^\s()]+)'
-  braces_param: '(?:[^\s{}]+)'
   delim: \(\)\[\]\{\}
   num_begin: '{{word_begin}}'
   num_end: '{{word_end}}'
@@ -20,14 +16,27 @@ variables:
   int_dec: '\d+'
   int_hex: '[0-9a-f]+'
   exponent: 'e[+-]?'
-  param: '[^\s"{{tick}}]+'
-  declaring_word_top: (?:(?i)(?:constant|variable|2variable|value|vocabulary|defer|answord|create|xword|end-struct|field|user))
-  declaring_word_inner: (?:(?i)to)
-  parsing_word_top: (?:(?i)(?:require|include))
-  parsing_word_inner: (?:(?i)(?:char|postpone|compile))
-  keyword: (?:(?i)(?:if|else|then|endif|[?+-]?do|u-do|while|begin|repeat|until|leave|for|[+-]?loop|next|exit))
   tick: \'
-  eol: (?:\n|$)
+  word_begin: '(?<=^|\s)'
+  word_end: '(?=\s|$)'
+  word: '(?:\S+)'
+  param: '[^\s"{{tick}}]+'
+  parens_param: '(?:[^\s()]+)'
+  braces_param: '(?:[^\s{}]+)'
+  declaring_word_top: (?i:constant|variable|2variable|value|vocabulary|defer|answord|create|xword|end-struct|field|user)
+  declaring_word_inner: (?i:to)
+  parsing_word_top: (?i:require|include)
+  parsing_word_inner: (?i:char|postpone|compile)
+
+  # Like in `declaring_words`, some of these are non-standard
+  # and modeled on patterns in Gforth source code.
+  keyword: |-
+    (?xi:
+      if|else|then|endif|
+      [?+-]?do|u-do|while|begin|repeat|until|leave|for|[+-]?loop|next|
+      throw|throw[_-]?{{word}}|{{word}}[_-]?throw|
+      abort|quit|exit
+    )
 
 contexts:
   prototype:
@@ -48,6 +57,7 @@ contexts:
     - include: parsing-word-generic-match
     - include: parsing-word-inner-match
     - include: delimited-word-match
+    - include: constant-match
     - include: keyword-match
     - include: any-word-match
 
@@ -160,6 +170,19 @@ contexts:
   #
   #   <begin>" <string content>"<end>
   string-double-match:
+    - include: string-double-keyword-match
+    - include: string-double-other-match
+
+  string-double-keyword-match:
+    - match: '{{word_begin}}({{keyword}})("+)\s([^"]*)(\2)([^\s"]*){{word_end}}'
+      captures:
+        1: variable.function.forth
+        2: punctuation.definition.string.begin.forth
+        3: string.quoted.double.forth
+        4: punctuation.definition.string.end.forth
+        5: variable.other.forth
+
+  string-double-other-match:
     - match: '{{word_begin}}([^\s"]*)("+)\s([^"]*)(\2)([^\s"]*){{word_end}}'
       captures:
         1: variable.other.forth
@@ -233,7 +256,7 @@ contexts:
     - include: nonblank-pop
 
   parens-param-match:
-    - match: '{{word_begin}}{{parens_param}}{{word_end}}'
+    - match: '{{parens_param}}'
       scope: variable.other.forth
 
   parens-end-pop:
@@ -374,9 +397,11 @@ contexts:
         1: storage.modifier.forth
         2: storage.modifier.forth
 
-  keyword-match:
-    - match: '{{word_begin}}(?i)(?:nil|true|false){{word_end}}'
+  constant-match:
+    - match: '{{word_begin}}(?i:nil|true|false){{word_end}}'
       scope: constant.language.boolean.forth
+
+  keyword-match:
     - match: '{{word_begin}}{{keyword}}{{word_end}}'
       scope: variable.function.forth
 
