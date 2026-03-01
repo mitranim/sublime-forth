@@ -34,7 +34,7 @@ variables:
     (?xi:
       if|else|then|endif|
       [?+-]?do|u-do|while|begin|repeat|until|leave|for|[+-]?loop|next|
-      throw|throw[_-]?{{word}}|{{word}}[_-]?throw|
+      throw|throw[_-]{{word}}|{{word}}[_-]throw|
       abort|quit|exit
     )
 
