@@ -6,7 +6,8 @@ file_extensions: [f, fs, ft, fth] # Nobody agrees on extensions.
 
 variables:
   eol: (?:\n|$)
-  comment_line_begin: (?i:\\+g?) # \g is Gforth-specific.
+  # \g is Gforth-specific.
+  comment_line_begin: (?i:\\+g?)
   comment_block_begin: \(
   comment_block_end: \)
   delim: \(\)\[\]\{\}
