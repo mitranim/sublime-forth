@@ -47,6 +47,7 @@ contexts:
     - include: colon-match
     - include: declaring-word-top-match
     - include: parsing-word-top-match
+    - include: parsing-word-ticked-match
     - include: inner
 
   inner:
@@ -328,12 +329,20 @@ contexts:
         1: keyword.declaration.forth
         2: variable.declaration.forth
 
+  # Unbracketed ticked words are non-immediate.
+  # This context is root-only.
+  parsing-word-ticked-match:
+    - match: '{{word_begin}}[^\s{{tick}}"]*?({{tick}}+){{word_end}}'
+      scope: variable.function.forth
+      captures:
+        1: storage.modifier.forth
+      push: parse-word-pop
+
   # Support the convention where immediate words with a trailing apostrophe
   # parse the next word in the source text. We scope the next word as a string
   # to clarify its role.
   parsing-word-generic-match:
     - include: parsing-word-bracketed-ticked-match
-    - include: parsing-word-ticked-match
     - include: parsing-word-bracketed-known-match
 
   parsing-word-bracketed-ticked-match:
@@ -343,13 +352,6 @@ contexts:
         1: storage.modifier.forth
         2: storage.modifier.forth
         3: storage.modifier.forth
-      push: parse-word-pop
-
-  parsing-word-ticked-match:
-    - match: '{{word_begin}}[^\s{{tick}}"]*?({{tick}}+){{word_end}}'
-      scope: variable.function.forth
-      captures:
-        1: storage.modifier.forth
       push: parse-word-pop
 
   parsing-word-bracketed-known-match:
